@@ -5,3 +5,16 @@ core
 polipo.html
 polipo.info
 html/
+latex/
+
+#emacs temp files
+
+\#*#
+\.\#*
+*~
+
+#gtag files
+GPATH
+GRTAGS
+GTAGS
+

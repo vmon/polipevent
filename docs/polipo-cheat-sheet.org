@@ -1,0 +1,138 @@
+* debugging
+  gdb 
+  gdb -i=mi polipo
+
+  also you can use tools->debugger(GDB) from emacs menu.
+
+  break point can be put
+
+  client.c:httpAccept(int fd, FdEventHandlerPtr event, AcceptRequestPtr request)
+
+
+  to trigger exec 
+  
+  curl -x localhost:8123 http://www.1112.net/lastpage.html
+
+* setup cache 
+  if you get
+
+  Disabling disk cache: No such file or directory
+
+  choose an alternative config file like
+
+  config.debug
+
+  uncomment line:
+
+  diskCacheRoot = "~/.polipo-cache/"
+  
+  make the folder
+
+  mkdir ~/.polipo-cache/
+
+  and use 
+  
+  gdb -i=mi --args ./polipo -c config.debug
+
+  to debug
+
+  to force cache even if the cache control doesn't say so.
+  
+* The request flow chart:
+  connection comes:
+  client.c:httpAccept:
+   - assign a connection object to fd.
+     connection object deal with upstream.
+   - attach client.c:httpClientHandler as read callback to fd.
+
+  when data comes
+  client.c:httpClientHandler
+  (http_parse.c:findEndOfHeaders)
+    httpClientHandlerHeaders
+      httpParseClientFirstLine
+      http.c:httpMakeRequest empty request constructor (request object deal with downstream)
+        deal with some error case then update connection
+        object.
+      http.c:httpQueueRequest
+        connection is circuit, and requests are link list 
+        objects attached to one connection
+
+      client.c:httpClientRequest
+        http_parse.c:httpParseHeaders
+        httpClientRequestContinue
+          objcet.c:findObject
+          if failed: object:makeObject which just make the metadata
+          client:httpClientNoticeRequest
+            object:objectFillFromDisk
+               if not found makeDiskEntry which doesn't do much cause create=0
+               this condition satisfies
+               !objectHasData &&
+               !object->flags & OBJECT_INPROGRESS 
+               results in validate=1
+               conditionWait (not sure what)
+            if null
+              server.c:httpServerRequest
+                http_parse:parse_url
+                server:httpMakeServerRequest
+                  httpServerQueueRequest
+                  server:httpServerTrigger
+                  httpServerGetConnection
+                     httpServerConnection
+                       httpServerMakeConnection (just make the object)
+                       do_gethostbyname register httpServerConnectionDnsHandler callback
+                       httpServerConnectionDnsHandler register httpServerConnectionDnsHandler eventually calls 
+                         do_connect registers httpServerConnectionHandler
+                           httpServerConnectionHandler
+                             httpServerConnectionHandlerCommon
+                               httpServerTrigger
+                                 this time there is a connection returns by
+                                 httpServerGetConnection
+                                 httpWriteRequest write the get request to the server
+                                   httpServerSendRequest
+                                     register httpServerHandler
+                                 httpServerReply register httpServerReplyHandler
+                                   httpServerReplyHandler
+                                       httpServerHandlerHeaders 
+                                         new_object is being populated here for the request
+                                         connectionAddData if there is not enough data
+                                         httpServerFinish
+                                           httpServerTrigger
+                                             unknown register httpServeObject
+           else
+             client.c:httpServeObject (re-creates the header)
+             do_stream_h which is writing in the socket and calls
+               httpServeObjectStreamHandlerCommon on callback
+                deals with killing the timer and destroying connection 
+                buffer.
+                httpServeChunk
+                  which serves remaining data
+                  httpClientFinish
+
+    Writing to disk happens based on a time out done by event
+    handler calling
+    writeoutObjects
+      writeoutToDisk
+    
+    also 
+    discardObjects
+      writeoutToDisk
+        reallyWriteoutToDisk
+          which decides about rewriting metadata
+
+    #ifndef NO_DISK_CACHE
+      simply writeoutToDisk is empty
+      
+    
+     
+* Atoms
+  are interned, read-only reference-counted strings.
+
+   Interned means that equality of atoms is equivalent to structural
+   equality -- you don't need to strcmp, you just compare the AtomPtrs
+* libeventizing notes
+  we don't need httpAccept as it evhttp can directly takes
+  us to HttpClientHandler with the request.
+
+
+  we can actully ignore all till except http_parse.c:httpParseHeaders
+  and then go directly to clinetRequestContinue
