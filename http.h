@@ -74,7 +74,8 @@ typedef struct _HTTPConnection {
     int serviced;
     int version;
     int time;
-    TimeEventHandlerPtr timeout;
+  //TimeEventHandlerPtr timeout; //the event handler is stored in registered in bufferevent
+  //object
     int te;
     char *reqbuf;
     int reqlen;
@@ -87,6 +88,7 @@ typedef struct _HTTPConnection {
     struct _HTTPServer *server;
     int pipelined;
     int connecting;
+
 } HTTPConnectionRec, *HTTPConnectionPtr;
 
 /* connection->flags */

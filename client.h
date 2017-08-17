@@ -20,9 +20,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-int httpAccept(int, FdEventHandlerPtr, AcceptRequestPtr);
+void httpAccept(struct evconnlistener *evcl, evutil_socket_t fd,
+                       struct sockaddr *sourceaddr, int socklen,
+                       void *closure);
+//int httpAccept(int, FdEventHandlerPtr, AcceptRequestPtr);
 void httpClientFinish(HTTPConnectionPtr connection, int s);
-int httpClientHandler(int, FdEventHandlerPtr, StreamRequestPtr);
+void httpClientHandler(struct bufferevent *bev, void *arg);
+void httpClientEventHandler(struct bufferevent *, short what, void *arg);
 int httpClientNoticeError(HTTPRequestPtr, int code, struct _Atom *message);
 int httpClientError(HTTPRequestPtr, int code, struct _Atom *message);
 int httpClientNewError(HTTPConnectionPtr, int method, int persist, 
@@ -45,8 +49,7 @@ int httpClientRequestContinue(int forbidden_code, AtomPtr url,
 int httpClientDiscardBody(HTTPConnectionPtr connection);
 int httpClientDiscardHandler(int, FdEventHandlerPtr, StreamRequestPtr);
 int httpClientGetHandler(int, ConditionHandlerPtr);
-int httpClientHandlerHeaders(FdEventHandlerPtr event, 
-                                StreamRequestPtr request,
+int httpClientHandlerHeaders(StreamRequestPtr request,
                                 HTTPConnectionPtr connection);
 int httpClientNoticeRequest(HTTPRequestPtr request, int);
 int httpServeObject(HTTPConnectionPtr);

@@ -31,10 +31,11 @@ typedef struct _TimeEventHandler {
     char data[1];
 } TimeEventHandlerRec, *TimeEventHandlerPtr;
 
+/* vmon not needed for libevent*/
 typedef struct _FdEventHandler {
     short fd;
     short poll_events;
-    struct _FdEventHandler *previous, *next;
+    struct _FdEventHandler *previous, *next; 
     int (*handler)(int, struct _FdEventHandler*);
     char data[1];
 } FdEventHandlerRec, *FdEventHandlerPtr;

@@ -836,3 +836,83 @@ physicalMemory()
     return -1;
 }
 #endif
+
+/**
+ * malloc or die function
+ */
+void *
+xmalloc(size_t size)
+{
+  void *result;
+
+  /* Some malloc() implementations return NULL when the input argument
+     is zero. We don't bother detecting whether the implementation we're
+     being compiled for does that, because it should hardly ever come up,
+     and avoiding it unconditionally does no harm. */
+  if (size == 0)
+    size = 1;
+
+  result = malloc(size);
+
+  if (result == NULL) {
+    do_log(L_ERROR, "Failed to allocate %lu bytes: out of memory.", size);
+    exit(1);
+  }
+
+  return result;
+
+}
+
+void *
+xmemdup(const void *ptr, size_t size)
+{
+  void *copy = xmalloc(size);
+  memcpy(copy, ptr, size);
+  return copy;
+}
+
+char *
+xstrdup(const char *s)
+{
+  return (char *)xmemdup(s, strlen(s) + 1);
+}
+
+/************************ String Functions *************************/
+/** Many of the functions in this section were carbon copied off tor.
+    Thank you tor! */
+
+/** Replacement for snprintf.  Differs from platform snprintf in two
+ * ways: First, always NUL-terminates its output.  Second, always
+ * returns -1 if the result is truncated.  (Note that this return
+ * behavior does <i>not</i> conform to C99; it just happens to be
+ * easier to emulate "return -1" with conformant implementations than
+ * it is to emulate "return number that would be written" with
+ * non-conformant implementations.) */
+int
+xsnprintf(char *str, size_t size, const char *format, ...)
+{
+  va_list ap;
+  int r;
+  va_start(ap,format);
+  r = xvsnprintf(str,size,format,ap);
+  va_end(ap);
+  return r;
+}
+
+/** Replacement for vsnprintf; behavior differs as xsnprintf differs from
+ * snprintf.
+ */
+int
+xvsnprintf(char *str, size_t size, const char *format, va_list args)
+{
+  int r;
+  if (size == 0)
+    return -1; /* no place for the NUL */
+  if (size > SIZE_T_CEILING)
+    return -1;
+  r = vsnprintf(str, size, format, args);
+  str[size-1] = '\0';
+  if (r < 0 || r >= (ssize_t)size)
+    return -1;
+  return r;
+}

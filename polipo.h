@@ -35,6 +35,16 @@ THE SOFTWARE.
 #include <errno.h>
 #include <string.h>
 #include <assert.h>
+
+//for getting libevent event loop
+#include <event2/event.h>
+#include <event2/listener.h>
+#include <event2/bufferevent.h>
+#include <event2/buffer.h>
+#include <event2/listener.h>
+#include <event2/util.h>
+
+
 #ifndef _WIN32
 #include <unistd.h>
 #include <sys/time.h>
@@ -87,6 +97,17 @@ THE SOFTWARE.
 #else
 #define ATTRIBUTE(x) /**/
 #endif
+
+#define ATTR_MALLOC   __attribute__((malloc))
+#define ATTR_NORETURN __attribute__((noreturn))
+#define ATTR_NOTHROW  __attribute__((nothrow))
+#define ATTR_PRINTF_1 __attribute__((format(printf, 1, 2)))
+#define ATTR_PRINTF_2 __attribute__((format(printf, 2, 3)))
+#define ATTR_PRINTF_3 __attribute__((format(printf, 3, 4)))
+#define ATTR_VPRINTF_1 __attribute__((format(printf, 1, 0)))
+#define ATTR_VPRINTF_2 __attribute__((format(printf, 2, 0)))
+#define ATTR_VPRINTF_3 __attribute__((format(printf, 3, 0)))
+#define ATTR_PURE     __attribute__((pure))
 
 /* Musl doesn't have a specific test, so assume musl if Linux and neither
    __GLIBC__ nor __UCLIBC__ */

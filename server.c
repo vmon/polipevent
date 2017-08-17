@@ -1269,9 +1269,9 @@ httpServerFinish(HTTPConnectionPtr connection, int s, int offset)
     connection->serviced++;
 
     if(s) {
-        if(connection->timeout)
-            cancelTimeEvent(connection->timeout);
-        connection->timeout = NULL;
+        /* if(connection->timeout) */
+        /*     cancelTimeEvent(connection->timeout); */
+        /* connection->timeout = NULL; */
         httpConnectionDestroyBuf(connection);
         if(connection->fd >= 0)
             CLOSE(connection->fd);

@@ -22,6 +22,16 @@ Further inquiries should be sent to the Polipo-users mailing list:
 
 Please see the Polipo web page for subscription information.
 
-
 Juliusz Chroboczek
 <jch@pps.univ-paris-diderot.fr>
+
+Polipevent README 
+=======================
+
+Polipoevent is a fork of polipo which use a standard
+event loop to be compatible with other libraries which
+works with libevent event loops.
+
+It also allows for custom cache modules beside cache
+on the disk.
+

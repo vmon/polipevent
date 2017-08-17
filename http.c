@@ -252,9 +252,9 @@ httpSetTimeout(HTTPConnectionPtr connection, int secs)
 {
     TimeEventHandlerPtr new;
 
-    if(connection->timeout)
-        cancelTimeEvent(connection->timeout);
-    connection->timeout = NULL;
+    /* if(connection->timeout) */
+    /*     cancelTimeEvent(connection->timeout); */
+    /* connection->timeout = NULL; */
 
     if(secs > 0) {
         new = scheduleTimeEvent(secs, httpTimeoutHandler,
@@ -268,7 +268,7 @@ httpSetTimeout(HTTPConnectionPtr connection, int secs)
         new = NULL;
     }
 
-    connection->timeout = new;
+    /* connection->timeout = new; */
     return 1;
 }
 
@@ -284,7 +284,7 @@ httpTimeoutHandler(TimeEventHandlerPtr event)
                 do_log_error(L_ERROR, errno, "Timeout: shutdown failed");
         pokeFdEvent(connection->fd, -EDOTIMEOUT, POLLIN | POLLOUT);
     }
-    connection->timeout = NULL;
+     /* connection->timeout = NULL; */
     return 1;
 }
 
@@ -574,7 +574,7 @@ httpMakeConnection()
     connection->serviced = 0;
     connection->version = HTTP_UNKNOWN;
     connection->time = current_time.tv_sec;
-    connection->timeout = NULL;
+    //connection->timeout = NULL;
     connection->te = TE_IDENTITY;
     connection->reqbuf = NULL;
     connection->reqlen = 0;
@@ -598,7 +598,7 @@ httpDestroyConnection(HTTPConnectionPtr connection)
     assert(!connection->request);
     assert(!connection->request_last);
     httpConnectionDestroyReqbuf(connection);
-    assert(!connection->timeout);
+    //assert(!connection->timeout);
     assert(!connection->server);
     free(connection);
 }

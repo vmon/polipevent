@@ -38,6 +38,12 @@ THE SOFTWARE.
 /* Internal -- header is really buf_location */
 #define IO_BUF_LOCATION 0x2000
 
+typedef struct _Listener {
+  struct evconnlistener* ev_listener;
+  char *address;
+  struct event_base *base;
+
+} Listener, *ListenerPtr;
 typedef struct _StreamRequest {
     short operation;
     short fd;
@@ -141,10 +147,23 @@ schedule_accept(int fd,
 
 int do_scheduled_accept(int, FdEventHandlerPtr event);
 
-FdEventHandlerPtr
-create_listener(char *address, int port,
-                int (*handler)(int, FdEventHandlerPtr, AcceptRequestPtr),
+/**
+ * creates a listener to listen for the client (upstream) connections
+ */
+ListenerPtr create_listener(struct event_base *base,
+                char *address, int port,
+                evconnlistener_cb accept_cb,//int (*handler)(int, FdEventHandlerPtr, AcceptRequestPtr)
                 void *data);
+/* FdEventHandlerPtr */
+/* create_listener(char *address, int port, */
+/*                 int (*handler)(int, FdEventHandlerPtr, AcceptRequestPtr), */
+/*                 void *data); */
+
+/**
+   Closes and deallocates listener_t 'lsn'.
+*/
+void close_listener(ListenerPtr lsn);
+
 int setNonblocking(int fd, int nonblocking);
 int setNodelay(int fd, int nodelay);
 int setV6only(int fd, int v6only);

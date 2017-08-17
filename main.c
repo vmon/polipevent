@@ -41,7 +41,7 @@ usage(char *argv0)
 int
 main(int argc, char **argv)
 {
-    FdEventHandlerPtr listener;
+    ListenerPtr listener;
     int i;
     int rc;
     int expire = 0, printConfig = 0;
@@ -157,15 +157,25 @@ main(int argc, char **argv)
         writePid(pidFile->string);
     }
 
-    listener = create_listener(proxyAddress->string, 
+    struct event_base *the_event_base = event_base_new();
+    if (!the_event_base) {
+      do_log(L_ERROR, "Fail to initiate the event base");
+      exit(1);
+    }
+
+    listener = create_listener(the_event_base, proxyAddress->string, 
                                proxyPort, httpAccept, NULL);
     if(!listener) {
         if(pidFile) unlink(pidFile->string);
         exit(1);
     }
 
-    eventLoop();
+    event_base_dispatch(the_event_base);
+    //eventLoop();
 
+    close_listener(listener);
+    event_base_free(the_event_base);
+    
     if(pidFile) unlink(pidFile->string);
     return 0;
 }

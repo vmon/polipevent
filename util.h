@@ -52,6 +52,12 @@ THE SOFTWARE.
 /* (ESOCKS5_BASE + n) corresponds to SOCKS5 status code n (0 to 8) */
 #define ESOCKS5_BASE (E3)
 
+//Useful constants
+#define MAX_PORT_STR_LENGTH 6 //"65536" +'\0'
+
+/** Any size_t larger than this amount is likely to be an underflow. */
+#define SIZE_T_CEILING  (SIZE_MAX/2 - 16)
+
 typedef struct _IntRange {
     int from;
     int to;
@@ -105,3 +111,27 @@ void destroyIntList(IntListPtr list);
 int intListMember(int n, IntListPtr list) ATTRIBUTE ((pure));
 int intListCons(int from, int to, IntListPtr list);
 int physicalMemory(void);
+
+/**
+ * malloc or die function
+ */
+void *xmalloc(size_t size);
+void *xmemdup(const void *ptr, size_t size) ATTR_MALLOC ATTR_NOTHROW;
+char *xstrdup(const char *s) ATTR_MALLOC ATTR_NOTHROW;
+char *xstrndup(const char *s, size_t maxsize) ATTR_MALLOC ATTR_NOTHROW;
+
+
+int xvsnprintf(char *str, size_t size, const char *format, va_list args) ATTR_VPRINTF_3;
+int xsnprintf(char *str, size_t size, const char *format, ...) ATTR_PRINTF_3;
+
+//libevent aux functions
+struct evutil_addrinfo *resolve_address_port(const char *address,
+                                             int nodns, int passive,
+                                             const char *default_port);
+
+/** Produce a printable name for this sockaddr.  The result is in
+    malloced memory. */
+char *printable_address(struct sockaddr *addr, socklen_t addrlen);
+
+struct evdns_base *get_evdns_base(void);
+int init_evdns_base(struct event_base *base);

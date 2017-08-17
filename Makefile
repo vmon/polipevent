@@ -38,6 +38,10 @@ CDEBUGFLAGS = -O0 -g2 -Wall -fno-strict-aliasing
 # EXE=.exe
 # LDLIBS = -lws2_32
 
+# we are changing the event loop to libevent so
+
+LDLIBS = -levent
+
 FILE_DEFINES = -DLOCAL_ROOT=\"$(LOCAL_ROOT)/\" \
                -DDISK_CACHE_ROOT=\"$(DISK_CACHE_ROOT)/\"
 
@@ -62,12 +66,12 @@ DEFINES = $(FILE_DEFINES) $(PLATFORM_DEFINES)
 
 CFLAGS = $(MD5INCLUDES) $(CDEBUGFLAGS) $(DEFINES) $(EXTRA_DEFINES)
 
-SRCS = util.c event.c io.c chunk.c atom.c object.c log.c diskcache.c main.c \
+SRCS = util.c util-event.c event.c io.c chunk.c atom.c object.c log.c diskcache.c main.c \
        config.c local.c http.c client.c server.c auth.c tunnel.c \
        http_parse.c parse_time.c dns.c forbidden.c \
        md5import.c md5.c ftsimport.c fts_compat.c socks.c mingw.c
 
-OBJS = util.o event.o io.o chunk.o atom.o object.o log.o diskcache.o main.o \
+OBJS = util.o util-event.o event.o io.o chunk.o atom.o object.o log.o diskcache.o main.o \
        config.o local.o http.o client.o server.o auth.o tunnel.o \
        http_parse.o parse_time.o dns.o forbidden.o \
        md5import.o ftsimport.o socks.o mingw.o

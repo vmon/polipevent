@@ -22,99 +22,132 @@ THE SOFTWARE.
 
 #include "polipo.h"
 
-static int 
-httpAcceptAgain(TimeEventHandlerPtr event)
-{
-    FdEventHandlerPtr newevent;
-    int fd = *(int*)event->data;
+/* static int  */
+/* httpAcceptAgain(TimeEventHandlerPtr event) */
+/* { */
+/*     FdEventHandlerPtr newevent; */
+/*     int fd = *(int*)event->data; */
 
-    newevent = schedule_accept(fd, httpAccept, NULL);
-    if(newevent == NULL) {
-        free_chunk_arenas();
-        newevent = schedule_accept(fd, httpAccept, NULL);
-        if(newevent == NULL) {
-            do_log(L_ERROR, "Couldn't schedule accept.\n");
-            polipoExit();
-        }
-    }
-    return 1;
+/*     newevent = schedule_accept(fd, httpAccept, NULL); */
+/*     if(newevent == NULL) { */
+/*         free_chunk_arenas(); */
+/*         newevent = schedule_accept(fd, httpAccept, NULL); */
+/*         if(newevent == NULL) { */
+/*             do_log(L_ERROR, "Couldn't schedule accept.\n"); */
+/*             polipoExit(); */
+/*         } */
+/*     } */
+/*     return 1; */
+/* } */
+
+void httpAccept(struct evconnlistener *evcl, evutil_socket_t fd,
+                struct sockaddr *sourceaddr, int socklen,
+                void *closure)
+{
+  ListenerPtr lsn = (ListenerPtr) closure;
+  char *peername = printable_address(sourceaddr, socklen);
+  struct bufferevent *buf = NULL;
+  HTTPConnectionPtr connection;
+
+  do_log(L_INFO,"%s: new connection from %s", lsn->address, peername);
+
+  buf = bufferevent_socket_new(lsn->base, fd, BEV_OPT_CLOSE_ON_FREE);
+  if (!buf) {
+    do_log(L_WARN,"%s: failed to create buffer for new connection from %s",
+             lsn->address, peername);
+    evutil_closesocket(fd);
+    free(peername);
+    return;
+  }
+
+  connection = httpMakeConnection();
+  connection->fd = fd;
+  //connection->timeout = timeout;
+
+  do_log(D_CLIENT_CONN, "Accepted client connection 0x%lx\n",
+         (unsigned long)connection);
+
+  connection->flags = CONN_READER;
+
+  bufferevent_setcb(buf, httpClientHandler, NULL, //no write handler for now
+                    httpClientEventHandler, connection);
 }
 
-int
-httpAccept(int fd, FdEventHandlerPtr event, AcceptRequestPtr request)
-{
-    int rc;
-    HTTPConnectionPtr connection;
-    TimeEventHandlerPtr timeout;
+/* int */
+/* httpAccept(int fd, FdEventHandlerPtr event, AcceptRequestPtr request) */
+/* { */
+/*     int rc; */
+/*     HTTPConnectionPtr connection; */
+/*     TimeEventHandlerPtr timeout; */
 
-    if(fd < 0) {
-        if(-fd == EINTR || -fd == EAGAIN || -fd == EWOULDBLOCK)
-            return 0;
-        do_log_error(L_ERROR, -fd, "Couldn't establish listening socket");
-        if(-fd == EMFILE || -fd == ENOMEM || -fd == ENOBUFS) {
-            TimeEventHandlerPtr again = NULL;
-            do_log(L_WARN, "Refusing client connections for one second.\n");
-            free_chunk_arenas();
-            again = scheduleTimeEvent(1, httpAcceptAgain, 
-                                      sizeof(request->fd), &request->fd);
-            if(!again) {
-                do_log(L_ERROR, "Couldn't schedule accept -- sleeping.\n");
-                sleep(1);
-                again = scheduleTimeEvent(1, httpAcceptAgain, 
-                                          sizeof(request->fd), &request->fd);
-                if(!again) {
-                    do_log(L_ERROR, "Couldn't schedule accept -- aborting.\n");
-                    polipoExit();
-                }
-            }
-            return 1;
-        } else {
-            polipoExit();
-            return 1;
-        }
-    }
+/*     if(fd < 0) { */
+/*         if(-fd == EINTR || -fd == EAGAIN || -fd == EWOULDBLOCK) */
+/*             return 0; */
+/*         do_log_error(L_ERROR, -fd, "Couldn't establish listening socket"); */
+/*         if(-fd == EMFILE || -fd == ENOMEM || -fd == ENOBUFS) { */
+/*             TimeEventHandlerPtr again = NULL; */
+/*             do_log(L_WARN, "Refusing client connections for one second.\n"); */
+/*             free_chunk_arenas(); */
+/*             again = scheduleTimeEvent(1, httpAcceptAgain,  */
+/*                                       sizeof(request->fd), &request->fd); */
+/*             if(!again) { */
+/*                 do_log(L_ERROR, "Couldn't schedule accept -- sleeping.\n"); */
+/*                 sleep(1); */
+/*                 again = scheduleTimeEvent(1, httpAcceptAgain,  */
+/*                                           sizeof(request->fd), &request->fd); */
+/*                 if(!again) { */
+/*                     do_log(L_ERROR, "Couldn't schedule accept -- aborting.\n"); */
+/*                     polipoExit(); */
+/*                 } */
+/*             } */
+/*             return 1; */
+/*         } else { */
+/*             polipoExit(); */
+/*             return 1; */
+/*         } */
+/*     } */
 
-    if(allowedNets) {
-        if(netAddressMatch(fd, allowedNets) != 1) {
-            do_log(L_WARN, "Refusing connection from unauthorised net\n");
-            CLOSE(fd);
-            return 0;
-        }
-    }
+/*     if(allowedNets) { */
+/*         if(netAddressMatch(fd, allowedNets) != 1) { */
+/*             do_log(L_WARN, "Refusing connection from unauthorised net\n"); */
+/*             CLOSE(fd); */
+/*             return 0; */
+/*         } */
+/*     } */
 
-    rc = setNonblocking(fd, 1);
-    if(rc < 0) {
-        do_log_error(L_WARN, errno, "Couldn't set non blocking mode");
-        CLOSE(fd);
-        return 0;
-    }
-    rc = setNodelay(fd, 1);
-    if(rc < 0) 
-        do_log_error(L_WARN, errno, "Couldn't disable Nagle's algorithm");
+/*     rc = setNonblocking(fd, 1); */
+/*     if(rc < 0) { */
+/*         do_log_error(L_WARN, errno, "Couldn't set non blocking mode"); */
+/*         CLOSE(fd); */
+/*         return 0; */
+/*     } */
+/*     rc = setNodelay(fd, 1); */
+/*     if(rc < 0)  */
+/*         do_log_error(L_WARN, errno, "Couldn't disable Nagle's algorithm"); */
 
-    connection = httpMakeConnection();
+/*     connection = httpMakeConnection(); */
 
-    timeout = scheduleTimeEvent(clientTimeout, httpTimeoutHandler,
-                                sizeof(connection), &connection);
-    if(!timeout) {
-        CLOSE(fd);
-        free(connection);
-        return 0;
-    }
+/*     timeout = scheduleTimeEvent(clientTimeout, httpTimeoutHandler, */
+/*                                 sizeof(connection), &connection); */
+/*     if(!timeout) { */
+/*         CLOSE(fd); */
+/*         free(connection); */
+/*         return 0; */
+/*     } */
 
-    connection->fd = fd;
-    connection->timeout = timeout;
+/*     connection->fd = fd; */
+/*     connection->timeout = timeout; */
 
-    do_log(D_CLIENT_CONN, "Accepted client connection 0x%lx\n",
-           (unsigned long)connection);
+/*     do_log(D_CLIENT_CONN, "Accepted client connection 0x%lx\n", */
+/*            (unsigned long)connection); */
 
-    connection->flags = CONN_READER;
+/*     connection->flags = CONN_READER; */
 
-    do_stream_buf(IO_READ | IO_NOTNOW, connection->fd, 0,
-                  &connection->reqbuf, CHUNK_SIZE,
-                  httpClientHandler, connection);
-    return 0;
-}
+/*     do_stream_buf(IO_READ | IO_NOTNOW, connection->fd, 0, */
+/*                   &connection->reqbuf, CHUNK_SIZE, */
+/*                   httpClientHandler, connection); */
+/*     return 0; */
+/* } */
 
 /* Abort a client connection.  It is only safe to abort the requests
    if we know the connection is closed. */
@@ -137,6 +170,7 @@ httpClientAbort(HTTPConnectionPtr connection, int closed)
     }
 }
 
+//TODO: client finish.
 /* s != 0 specifies that the connection must be shut down.  It is 1 in
    order to linger the connection, 2 to close it straight away. */
 void
@@ -168,9 +202,10 @@ httpClientFinish(HTTPConnectionPtr connection, int s)
         return;
     }
 
-    if(connection->timeout) 
-        cancelTimeEvent(connection->timeout);
-    connection->timeout = NULL;
+    //if(connection->timeout)  we don't need to worry about timeout
+    //    cancelTimeEvent(connection->timeout); timeout is handled by
+    //bufferevent
+    //connection->timeout = NULL;
 
     if(request) {
         HTTPRequestPtr requestee;
@@ -217,13 +252,14 @@ httpClientFinish(HTTPConnectionPtr connection, int s)
                 httpConnectionUnbigifyReqbuf(connection);
             connection->flags |= CONN_READER;
             httpSetTimeout(connection, clientTimeout);
-            do_stream_buf(IO_READ | IO_NOTNOW |
-                          (connection->reqlen ? IO_IMMEDIATE : 0),
-                          connection->fd, connection->reqlen,
-                          &connection->reqbuf,
-                          (connection->flags & CONN_BIGREQBUF) ?
-                          bigBufferSize : CHUNK_SIZE,
-                          httpClientHandler, connection);
+            
+            /* do_stream_buf(IO_READ | IO_NOTNOW | */
+            /*               (connection->reqlen ? IO_IMMEDIATE : 0), */
+            /*               connection->fd, connection->reqlen, */
+            /*               &connection->reqbuf, */
+            /*               (connection->flags & CONN_BIGREQBUF) ? */
+            /*               bigBufferSize : CHUNK_SIZE, */
+            /*               httpClientHandler, connection); */
         }
         /* The request has already been validated when it first got
            into the queue */
@@ -269,9 +305,9 @@ httpClientFinish(HTTPConnectionPtr connection, int s)
         httpDestroyRequest(request);
     }
     httpConnectionDestroyReqbuf(connection);
-    if(connection->timeout)
-        cancelTimeEvent(connection->timeout);
-    connection->timeout = NULL;
+    /* if(connection->timeout) */
+    /*     cancelTimeEvent(connection->timeout); */
+    /* connection->timeout = NULL; */
     if(connection->fd >= 0) {
         if(s >= 2)
             CLOSE(connection->fd);
@@ -354,72 +390,173 @@ httpClientDelayedShutdownHandler(TimeEventHandlerPtr event)
     return 1;
 }
 
-int
-httpClientHandler(int status,
-                  FdEventHandlerPtr event, StreamRequestPtr request)
+void
+httpClientHandler(struct bufferevent *bev, void *arg)
 {
-    HTTPConnectionPtr connection = request->data;
-    int i, body;
-    int bufsize = 
-        (connection->flags & CONN_BIGREQBUF) ? bigBufferSize : CHUNK_SIZE;
+  StreamRequestPtr request = (StreamRequestPtr)arg;
+  HTTPConnectionPtr connection = (HTTPConnectionPtr)request->data;
+  int i, body;
 
-    assert(connection->flags & CONN_READER);
+  struct evbuffer* recv_pending = bufferevent_get_input(bev);
+  int bufsize = evbuffer_get_length(recv_pending);
+  do_log(L_INFO, "%lu bytes available", (unsigned long)bufsize);
 
-    /* There's no point trying to do something with this request if
-       the client has shut the connection down -- HTTP doesn't do
-       half-open connections. */
-    if(status != 0) {
-        connection->reqlen = 0;
-        httpConnectionDestroyReqbuf(connection);
-        if(!(connection->flags & CONN_WRITER)) {
-            connection->flags &= ~CONN_READER;
-            if(status > 0 || status == -ECONNRESET || status == -EDOSHUTDOWN)
-                httpClientFinish(connection, 2);
-            else
-                httpClientFinish(connection, 1);
-            return 1;
-        }
-        httpClientAbort(connection, status > 0 || status == -ECONNRESET);
-        connection->flags &= ~CONN_READER;
-        return 1;
-    }
+  connection->reqbuf = (char*) evbuffer_pullup(recv_pending, -1); //-1 makes entire buffer contagious
+  if (connection->reqbuf == NULL) {
+    do_log(L_ERROR, "SERVER evbuffer_pullup fails");
+    exit(1);
+  }
+  i = findEndOfHeaders(connection->reqbuf, 0, request->offset, &body);
+  connection->reqlen = request->offset;
 
-    i = findEndOfHeaders(connection->reqbuf, 0, request->offset, &body);
-    connection->reqlen = request->offset;
+  if(i >= 0) {
+    connection->reqbegin = i;
+    httpClientHandlerHeaders(request, connection); //why sending the connection again?
+  }
 
-    if(i >= 0) {
-        connection->reqbegin = i;
-        httpClientHandlerHeaders(event, request, connection);
-        return 1;
-    }
+  //otherwise we haven't received all the request let just wait so we get the whole header
+  //(connection->reqlen >= bufsize)
+  do_log(L_INFO, "incomplete request, waiting for the rest...");
 
-    if(connection->reqlen >= bufsize) {
-        int rc = 0;
-        if(!(connection->flags & CONN_BIGREQBUF))
-            rc = httpConnectionBigifyReqbuf(connection);
-        if((connection->flags & CONN_BIGREQBUF) &&
-           connection->reqlen < bigBufferSize) {
-            do_stream(IO_READ, connection->fd, connection->reqlen,
-                      connection->reqbuf, bigBufferSize,
-                      httpClientHandler, connection);
-            return 1;
-        }
-        connection->reqlen = 0;
-        httpConnectionDestroyReqbuf(connection);
-        if(rc < 0) {
-            do_log(L_ERROR, "Couldn't allocate big buffer.\n");
-            httpClientNewError(connection, METHOD_UNKNOWN, 0, 400, 
-                               internAtom("Couldn't allocate big buffer"));
-        } else {
-            do_log(L_ERROR, "Couldn't find end of client's headers.\n");
-            httpClientNewError(connection, METHOD_UNKNOWN, 0, 400, 
-                               internAtom("Couldn't find end of headers"));
-        }
-        return 1;
-    }
-    httpSetTimeout(connection, clientTimeout);
-    return 0;
 }
+
+void
+httpClientEventHandler(struct bufferevent *bev, short what, void *arg)
+{
+  StreamRequestPtr request = (StreamRequestPtr)arg;
+  HTTPConnectionPtr connection = (HTTPConnectionPtr)request->data;
+  
+  if (what & (BEV_EVENT_ERROR|BEV_EVENT_EOF|BEV_EVENT_TIMEOUT)) {
+    if (what & BEV_EVENT_ERROR)
+      do_log(L_INFO, "network error in %s: %s",
+               (what & BEV_EVENT_READING) ? "read" : "write",
+               evutil_socket_error_to_string(EVUTIL_SOCKET_ERROR()));
+    else if (what & BEV_EVENT_EOF)
+      /*     /\* There's no point trying to do something with this request if */
+      /*        the client has shut the connection down -- HTTP doesn't do */
+      /*        half-open connections. *\/ */
+      do_log(L_INFO, "%s",
+               (what & BEV_EVENT_READING)
+               ? "EOF from upstream"
+               : "further transmissions to upstream squelched");
+    else if (what & BEV_EVENT_TIMEOUT) {
+      do_log(L_WARN, "%s timed out",
+               (what & BEV_EVENT_READING) ? "read" : "write");
+      //connection->timeout = NULL;
+    }
+
+    connection->reqlen = 0; 
+    httpConnectionDestroyReqbuf(connection);
+
+    //TODO look into this when should we finish 1 and when 2
+    if(!(what & BEV_EVENT_WRITING)) {
+      connection->flags &= ~CONN_READER;
+      httpClientFinish(connection, 2);
+/*             if(status > 0 || status == -ECONNRESET || status == -EDOSHUTDOWN) */
+/*                 httpClientFinish(connection, 2); */
+/*             else */
+/*                 httpClientFinish(connection, 1); */
+      return;
+    }
+    
+
+    if (what == (BEV_EVENT_EOF|BEV_EVENT_READING)) {
+      /* Upstream is done sending us data. */
+      httpClientFinish(connection, 1);
+    }
+  } else {
+    /* We should never get BEV_EVENT_CONNECTED here.
+       Ignore any events we don't understand. */
+    if (what & BEV_EVENT_CONNECTED) {
+      do_log(L_ERROR, "double connection event");
+      exit(1);
+    }
+    
+  }
+
+
+/*         connection->reqlen = 0; */
+/*         httpConnectionDestroyReqbuf(connection); */
+/*         if(!(connection->flags & CONN_WRITER)) { */
+/*             connection->flags &= ~CONN_READER; */
+/*             if(status > 0 || status == -ECONNRESET || status == -EDOSHUTDOWN) */
+/*                 httpClientFinish(connection, 2); */
+/*             else */
+/*                 httpClientFinish(connection, 1); */
+/*             return 1; */
+/*         } */
+/*         httpClientAbort(connection, status > 0 || status == -ECONNRESET); */
+/*         connection->flags &= ~CONN_READER; */
+/*         return 1; */
+
+}
+
+/* int */
+/* httpClientHandler(int status, */
+/*                   FdEventHandlerPtr event, StreamRequestPtr request) */
+/* { */
+/*     HTTPConnectionPtr connection = request->data; */
+/*     int i, body; */
+/*     int bufsize =  */
+/*         (connection->flags & CONN_BIGREQBUF) ? bigBufferSize : CHUNK_SIZE; */
+
+/*     assert(connection->flags & CONN_READER); */
+
+/*     /\* There's no point trying to do something with this request if */
+/*        the client has shut the connection down -- HTTP doesn't do */
+/*        half-open connections. *\/ */
+/*     if(status != 0) { */
+/*         connection->reqlen = 0; */
+/*         httpConnectionDestroyReqbuf(connection); */
+/*         if(!(connection->flags & CONN_WRITER)) { */
+/*             connection->flags &= ~CONN_READER; */
+/*             if(status > 0 || status == -ECONNRESET || status == -EDOSHUTDOWN) */
+/*                 httpClientFinish(connection, 2); */
+/*             else */
+/*                 httpClientFinish(connection, 1); */
+/*             return 1; */
+/*         } */
+/*         httpClientAbort(connection, status > 0 || status == -ECONNRESET); */
+/*         connection->flags &= ~CONN_READER; */
+/*         return 1; */
+/*     } */
+    
+/*     i = findEndOfHeaders(connection->reqbuf, 0, request->offset, &body); */
+/*     connection->reqlen = request->offset; */
+
+/*     if(i >= 0) { */
+/*         connection->reqbegin = i; */
+/*         httpClientHandlerHeaders(event, request, connection); */
+/*         return 1; */
+/*     } */
+
+/*     if(connection->reqlen >= bufsize) {  */
+/*         int rc = 0; */
+/*         if(!(connection->flags & CONN_BIGREQBUF)) */
+/*             rc = httpConnectionBigifyReqbuf(connection); */
+/*         if((connection->flags & CONN_BIGREQBUF) && */
+/*            connection->reqlen < bigBufferSize) { */
+/*             do_stream(IO_READ, connection->fd, connection->reqlen, */
+/*                       connection->reqbuf, bigBufferSize, */
+/*                       httpClientHandler, connection); */
+/*             return 1; */
+/*         } */
+/*         connection->reqlen = 0; */
+/*         httpConnectionDestroyReqbuf(connection); */
+/*         if(rc < 0) { */
+/*             do_log(L_ERROR, "Couldn't allocate big buffer.\n"); */
+/*             httpClientNewError(connection, METHOD_UNKNOWN, 0, 400,  */
+/*                                internAtom("Couldn't allocate big buffer")); */
+/*         } else { */
+/*             do_log(L_ERROR, "Couldn't find end of client's headers.\n"); */
+/*             httpClientNewError(connection, METHOD_UNKNOWN, 0, 400,  */
+/*                                internAtom("Couldn't find end of headers")); */
+/*         } */
+/*         return 1; */
+/*     } */
+/*     httpSetTimeout(connection, clientTimeout); */
+/*     return 0; */
+/* } */
 
 int
 httpClientRawErrorHeaders(HTTPConnectionPtr connection,
@@ -600,7 +737,7 @@ httpErrorNofinishStreamHandler(int status,
 }
 
 int
-httpClientHandlerHeaders(FdEventHandlerPtr event, StreamRequestPtr srequest,
+httpClientHandlerHeaders(StreamRequestPtr srequest,
                          HTTPConnectionPtr connection)
 {
     HTTPRequestPtr request;
@@ -1038,16 +1175,16 @@ httpClientDelayed(TimeEventHandlerPtr event)
          /* Don't read new requests if buffer is big. */
          bufsize = (connection->flags & CONN_BIGREQBUF) ?
              connection->reqlen : CHUNK_SIZE;
-         do_stream(IO_READ | IO_IMMEDIATE | IO_NOTNOW,
-                   connection->fd, connection->reqlen,
-                   connection->reqbuf, bufsize,
-                   httpClientHandler, connection);
+         /* do_stream(IO_READ | IO_IMMEDIATE | IO_NOTNOW, */
+         /*           connection->fd, connection->reqlen, */
+         /*           connection->reqbuf, bufsize, */
+         /*           httpClientHandler, connection); */
      } else {
          httpConnectionDestroyReqbuf(connection);
-         do_stream_buf(IO_READ | IO_NOTNOW,
-                       connection->fd, 0,
-                       &connection->reqbuf, CHUNK_SIZE,
-                       httpClientHandler, connection);
+         /* do_stream_buf(IO_READ | IO_NOTNOW, */
+         /*               connection->fd, 0, */
+         /*               &connection->reqbuf, CHUNK_SIZE, */
+         /*               httpClientHandler, connection); */
      }
      return 1;
 }
