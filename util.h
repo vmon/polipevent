@@ -53,7 +53,7 @@ THE SOFTWARE.
 #define ESOCKS5_BASE (E3)
 
 //Useful constants
-#define MAX_PORT_STR_LENGTH 6 //"65536" +'\0'
+#define MAX_PORT_STR_LENGTH 5 //strlen("65536")
 
 /** Any size_t larger than this amount is likely to be an underflow. */
 #define SIZE_T_CEILING  (SIZE_MAX/2 - 16)

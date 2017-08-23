@@ -117,6 +117,15 @@ do_stream_buf(int operation, int fd, int offset, char **buf_location, int len,
               int (*handler)(int, FdEventHandlerPtr, StreamRequestPtr),
               void *data);
 
+/**
+   make a fresh request corresponding to an accepted connection
+   it is parallel to schedule_stream without scheduling any event
+ */
+StreamRequestPtr makeStreamRquest(int operation, int fd, int offset,
+                char *header, int hlen,
+                char *buf, int len, char *buf2, int len2, char *buf3, int len3,
+                                  char **buf_location, void *data);
+
 FdEventHandlerPtr
 schedule_stream(int operation, int fd, int offset,
                 char *header, int hlen,

@@ -48,7 +48,7 @@ resolve_address_port(const char *address, int nodns, int passive,
   }
 
   memset(&ai_hints, 0, sizeof(ai_hints));
-  ai_hints.ai_family = AF_UNSPEC;
+  ai_hints.ai_family = AF_INET;//AF_UNSPEC;
   ai_hints.ai_socktype = SOCK_STREAM;
   ai_hints.ai_flags = EVUTIL_AI_ADDRCONFIG | EVUTIL_AI_NUMERICSERV;
   if (passive)

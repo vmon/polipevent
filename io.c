@@ -152,6 +152,52 @@ chunkHeader(char *buf, int buflen, int i)
     return n;
 }
 
+/**
+   make a fresh request corresponding to an accepted connection
+   it is parallel to schedule_stream without scheduling any event
+ */
+StreamRequestPtr makeStreamRquest(int operation, int fd, int offset,
+                char *header, int hlen,
+                char *buf, int len, char *buf2, int len2, char *buf3, int len3,
+                char **buf_location, void *data)
+{
+
+  StreamRequestPtr request = (StreamRequestPtr) xmalloc(sizeof(StreamRequestRec));
+  request->operation = operation;
+  request->fd = fd;
+
+  if(len3) {
+        assert(hlen == 0 && buf_location == NULL);
+        request->u.b.len3 = len3;
+        request->u.b.buf3 = buf3;
+        request->operation |= IO_BUF3;
+    } else if(buf_location) {
+        assert(hlen == 0);
+        request->u.l.buf_location = buf_location;
+        request->operation |= IO_BUF_LOCATION;
+    } else {
+        request->u.h.hlen = hlen;
+        request->u.h.header = header;
+    }
+    request->buf = buf;
+    request->len = len;
+    request->buf2 = buf2;
+    request->len2 = len2;
+    if((operation & IO_CHUNKED) || 
+       (!(request->operation & (IO_BUF3 | IO_BUF_LOCATION)) && hlen > 0)) {
+        assert(offset == 0);
+        request->offset = -hlen;
+        if(operation & IO_CHUNKED)
+            request->offset += -chunkHeaderLen(len + len2);
+    } else {
+        request->offset = offset;
+    }
+    //request->handler = handler;
+    request->data = data;
+
+    return request;
+}
+                                  
 
 FdEventHandlerPtr
 schedule_stream(int operation, int fd, int offset,
@@ -722,6 +768,7 @@ create_listener(struct event_base *base, char *address, int port,
   char default_port_str[MAX_PORT_STR_LENGTH + 1];
 
   listener = (ListenerPtr)xmalloc(sizeof(Listener));
+  listener->base = base;
 
   assert(port < 65536);
   snprintf(default_port_str, MAX_PORT_STR_LENGTH, "%d", port);
@@ -729,14 +776,14 @@ create_listener(struct event_base *base, char *address, int port,
   listener->address = xmalloc(addr_str_len);
   snprintf(listener->address, addr_str_len, "%s:%s", address, default_port_str);
   
-  struct evutil_addrinfo *listen_address = resolve_address_port(address, 1, 1, default_port_str);
+  struct evutil_addrinfo *listen_address = resolve_address_port(listener->address, 1, 1, default_port_str);
   const unsigned flags =
     LEV_OPT_CLOSE_ON_FREE|LEV_OPT_CLOSE_ON_EXEC|LEV_OPT_REUSEABLE;
 
-  listener->ev_listener = evconnlistener_new_bind(base, accept_cb, NULL,
+  listener->ev_listener = evconnlistener_new_bind(base, accept_cb, listener,
                                      flags,
                                      -1,
-                                     (struct sockaddr*)&listen_address->ai_addr, sizeof(listen_address->ai_addrlen));
+                                                  (struct sockaddr*)listen_address->ai_addr, listen_address->ai_addrlen);
   
       if (!listener->ev_listener) {
         do_log_error(L_ERROR, errno, "failed to open listening socket on %s: %s",

@@ -45,11 +45,12 @@ void httpAccept(struct evconnlistener *evcl, evutil_socket_t fd,
                 void *closure)
 {
   ListenerPtr lsn = (ListenerPtr) closure;
+  assert(lsn);
   char *peername = printable_address(sourceaddr, socklen);
   struct bufferevent *buf = NULL;
   HTTPConnectionPtr connection;
 
-  do_log(L_INFO,"%s: new connection from %s", lsn->address, peername);
+  do_log(L_INFO,"%s: new connection from %s\n", lsn->address, peername);
 
   buf = bufferevent_socket_new(lsn->base, fd, BEV_OPT_CLOSE_ON_FREE);
   if (!buf) {
@@ -69,8 +70,12 @@ void httpAccept(struct evconnlistener *evcl, evutil_socket_t fd,
 
   connection->flags = CONN_READER;
 
+  StreamRequestPtr request = makeStreamRquest(IO_READ | IO_NOTNOW, connection->fd, 0, NULL, 0, connection->reqbuf, CHUNK_SIZE,NULL, 0, NULL, 0, &connection->reqbuf, connection);
+
+
   bufferevent_setcb(buf, httpClientHandler, NULL, //no write handler for now
-                    httpClientEventHandler, connection);
+                    httpClientEventHandler, request);
+  bufferevent_enable(buf, EV_READ|EV_WRITE);
 }
 
 /* int */
@@ -127,6 +132,7 @@ void httpAccept(struct evconnlistener *evcl, evutil_socket_t fd,
 
 /*     connection = httpMakeConnection(); */
 
+
 /*     timeout = scheduleTimeEvent(clientTimeout, httpTimeoutHandler, */
 /*                                 sizeof(connection), &connection); */
 /*     if(!timeout) { */
@@ -142,7 +148,6 @@ void httpAccept(struct evconnlistener *evcl, evutil_socket_t fd,
 /*            (unsigned long)connection); */
 
 /*     connection->flags = CONN_READER; */
-
 /*     do_stream_buf(IO_READ | IO_NOTNOW, connection->fd, 0, */
 /*                   &connection->reqbuf, CHUNK_SIZE, */
 /*                   httpClientHandler, connection); */
@@ -406,12 +411,13 @@ httpClientHandler(struct bufferevent *bev, void *arg)
     do_log(L_ERROR, "SERVER evbuffer_pullup fails");
     exit(1);
   }
-  i = findEndOfHeaders(connection->reqbuf, 0, request->offset, &body);
-  connection->reqlen = request->offset;
+  i = findEndOfHeaders(connection->reqbuf, 0, bufsize, &body);
+  connection->reqlen = bufsize;
 
   if(i >= 0) {
     connection->reqbegin = i;
     httpClientHandlerHeaders(request, connection); //why sending the connection again?
+    return;
   }
 
   //otherwise we haven't received all the request let just wait so we get the whole header
@@ -1168,7 +1174,7 @@ httpClientDelayed(TimeEventHandlerPtr event)
      /* IO_NOTNOW is unfortunate, but needed to avoid starvation if a
         client is pipelining a lot of requests. */
      if(connection->reqlen > 0) {
-         int bufsize;
+       int bufsize;
          if((connection->flags & CONN_BIGREQBUF) &&
             connection->reqlen < CHUNK_SIZE)
              httpConnectionUnbigifyReqbuf(connection);
